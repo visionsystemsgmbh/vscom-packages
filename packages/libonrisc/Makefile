@@ -1,10 +1,10 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=libonrisc
-PKG_VERSION:=master
+PKG_VERSION:=1.5.4
 PKG_RELEASE:=1
 
-PKG_REV:=master
+PKG_REV:=203e4c01feb14ee87f8ddb602ce0bb6fb128978f
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
