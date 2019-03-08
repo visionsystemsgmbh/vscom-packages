@@ -1,0 +1,25 @@
+From bd613f42901ff5e36b6aa25766ac12ce308e517a Mon Sep 17 00:00:00 2001
+From: Vision Systems GmbH <contact@visionsystems.de>
+Date: Mon, 10 Apr 2017 10:41:06 +0200
+Subject: [PATCH] workaround for include_next warning
+
+---
+ src/makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/makefile b/src/makefile
+index e1c621d..2cf7273 100644
+--- a/src/makefile
++++ b/src/makefile
+@@ -32,7 +32,7 @@ ZLOG_MINOR=2
+ # Fallback to gcc when $CC is not in $PATH.
+ CC:=$(shell sh -c 'type $(CC) >/dev/null 2>/dev/null && echo $(CC) || echo gcc')
+ OPTIMIZATION?=-O2
+-WARNINGS=-Wall -Werror -Wstrict-prototypes -fwrapv
++WARNINGS=-Wall -Wstrict-prototypes -fwrapv
+ DEBUG?= -g -ggdb
+ REAL_CFLAGS=$(OPTIMIZATION) -fPIC -pthread $(CFLAGS) $(WARNINGS) $(DEBUG)
+ REAL_LDFLAGS=$(LDFLAGS) -pthread
+-- 
+2.1.4
+

@@ -1,0 +1,19 @@
+#!/bin/sh /etc/rc.common
+
+START=55
+
+start() {
+	# start vsopenvpnd
+	echo 'modbusgpio start'
+	service_start /usr/sbin/modbusgpio 502 0.0.0.0 &
+}
+
+stop() {
+	echo 'modbusgpio stop'
+	service_stop /usr/sbin/modbusgpio
+}
+
+reload() {
+	stop
+	start
+}

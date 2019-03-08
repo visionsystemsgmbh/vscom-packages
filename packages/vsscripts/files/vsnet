@@ -1,0 +1,25 @@
+#!/bin/sh /etc/rc.common
+
+START=22
+
+start() {
+        echo 'vsnet start'
+	local SystemId
+        config_load '/etc/config/onrisc'
+	config_get SystemId OnRISC SystemId
+	echo "$SystemId" >> /tmp/mysysid
+	case $SystemId in
+		[1-3])
+			ip link set dev eth0 promisc on
+			;;
+		2*)	
+			ethtool -s eth0 speed 100 duplex full
+			ethtool -s eth1 speed 100 duplex full
+			;;
+	esac
+}
+
+stop() {
+        echo 'vsnet stop'
+}
+

@@ -1,0 +1,31 @@
+#!/bin/sh /etc/rc.common
+
+START=95
+
+handle_iface() {
+        local config="$1"
+        local dev
+        local port
+        config_get dev "$config" dev
+        config_get port "$config" port
+
+        [ -e /sys/class/net/$dev ] && service_start /usr/sbin/slcantcp -i $dev -p $port -d
+}
+
+start() {
+        config_load '/etc/config/slcantcp'
+        config_foreach handle_iface iface
+
+        # start slcantcp
+        echo 'slcantcp start'
+}
+
+stop() {
+        echo 'slcantcp stop'
+        service_stop /usr/sbin/slcantcp
+}
+
+reload() {
+	stop
+	start
+}

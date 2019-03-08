@@ -1,0 +1,13 @@
+#!/bin/sh
+if [ ! -e /etc/config/netcom ]; then
+	/usr/bin/vsconfs
+fi
+
+/etc/init.d/ser2net disable
+
+uci batch <<-EOF
+	add ucitrack netcom
+	set ucitrack.@netcom[0].init=netcom
+	commit ucitrack
+EOF
+#exit 1

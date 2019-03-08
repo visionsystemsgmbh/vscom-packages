@@ -1,0 +1,28 @@
+#!/bin/sh /etc/rc.common
+
+START=21
+
+start() {
+        echo 'onrisc start'
+	if [ ! -e /etc/config/onrisc ]; then
+		/usr/bin/onriscinfo
+	fi
+
+	if [ ! -e /etc/config/netcom ]; then
+		/usr/bin/vsconfs
+	fi
+
+	/usr/bin/onrisctool -k 1
+
+	/usr/bin/onrisctool -I
+
+	if [ "`cat /etc/machine`" = "vsrouter" ]; then
+		/usr/bin/directcon
+	else	
+		/usr/bin/onriscdipd -c -e -d &
+	fi
+}
+
+stop() {
+        echo 'onrisc stop'
+}

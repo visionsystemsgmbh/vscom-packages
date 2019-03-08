@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+
+START=94
+SERVICE_DAEMONIZE=1
+
+start() {
+        echo 'vsupnpd loaded'
+
+        # start vsupnpd
+        service_start /usr/sbin/vsupnpd br-lan:E eth1:W
+}
+
+stop() {
+        echo 'vsupnpd stop'
+        killall vsupnpd
+}
+

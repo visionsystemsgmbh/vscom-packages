@@ -1,0 +1,234 @@
+<%#
+LuCI - Lua Configuration Interface
+Copyright 2008 Steven Barth <steven@midlink.org>
+Copyright 2008 Jo-Philipp Wich <xm@leipzig.freifunk.net>
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+-%>
+<%+header%>
+<% 
+	local model
+	require("onrisc")
+	local os=onrisc.onrisc_system_t()
+	onrisc.onrisc_init(os)
+	local ngpio=onrisc.onrisc_gpio_get_exp_number(onrisc.NUM_BOTH)
+	model = 210
+	local uci = require "luci.model.uci".cursor()
+	local ext = uci:get_first("gpio","config","extender")
+%>
+
+<script type="text/javascript" src="<%=resource%>/jquery.js"></script>
+<script type="text/javascript">
+
+	var gpio = new Array(<%=ngpio%>);
+
+	$(document).ready(function(){
+			$("#nojs").detach();	
+			for(var i=0; i< <%=ngpio%>; i++) {
+				gpio[i] = new Object();
+				gpio[i].type = -1;
+				gpio[i].displaytype = -1;
+				gpio[i].data = -1;
+				gpio[i].displaydata = -1;
+			}
+			gpio_refresh();
+			//$(".extend").hide();
+			toggleGpios(<%=ext%>);
+			$("#cbid\\.gpio\\.cfg016c7b\\.extender").change(function () {cbi_d_update(this.id);toggleGpios(this.checked);});
+	});
+
+function gpio_refresh() {
+	$("#gpio_refresh").attr('disabled', 'disabled');
+	$("#gpio_refresh_text").text('<%:Refreshing...%>');	
+
+
+	$.ajax({
+	url: "<%=luci.dispatcher.build_url("admin", "services", "vsgpio", "data")%>",
+	cache: false,
+	async: false,
+	success: function(data){
+		gpio_parse(data, "data");
+	}
+	});
+
+
+	$.ajax({
+	url: "<%=luci.dispatcher.build_url("admin", "services", "vsgpio", "ctrl")%>",
+	cache: false,
+	async: false,
+	success: function(data){
+		gpio_parse(data, "ctrl");
+	}
+	});
+
+	gpio_render();
+	$("#gpio_refresh").removeAttr('disabled');
+	$("#gpio_refresh_text").text('<%:Done.%>');
+
+}
+
+function gpio_switch(type, pin) {
+	var value = 0;
+
+	if(type == "ctrl") {	
+		value = (gpio[pin].displaytype == 1) ? 0 : 1;
+
+		if(gpio[pin].displaytype == 0) { //input->output
+			gpio[pin].displaytype = 1;
+			$("#gpio_tb_"+pin).html('<%:Output%>');
+			$("#gpio_state_"+pin).html('?');
+		}
+		else if(gpio[pin].displaytype == 1) { //output->input
+			gpio[pin].displaytype = 0;
+			$("#gpio_tb_"+pin).html('<%:Input%>');
+			$("#gpio_state_"+pin).html('?');
+		}
+
+		$.ajax({
+		url: "<%=luci.dispatcher.build_url("admin", "services", "vsgpio", "ctrl")%>",
+		data: "p"+pin+"="+value,
+		cache: false,
+		async: false
+		});
+	}
+	else if(type == "data") {
+		value = (gpio[pin].displaydata == 1) ? 0 : 1;
+		gpio[pin].displaydata = value;
+
+		$.ajax({
+		url: "<%=luci.dispatcher.build_url("admin", "services", "vsgpio", "data")%>",
+		data: "p"+pin+"="+value,
+		cache: false,
+		async: false
+		});
+	}
+	gpio_refresh();
+}
+
+function gpio_parse(data, type) {
+	var res = data.match(/([A-Fa-f0-9]{2,8})/g);
+	if(res && res.length == 1) {
+		var value = parseInt("0x"+res[0]);
+	
+		for(var i=0; i< <%=ngpio%>; i++) {
+			var state = ((value & (1<<i)) != 0);
+
+			if(type == "ctrl")
+				gpio[i].type = state;
+			else if(type == "data")
+				gpio[i].data = state;
+		}
+	}
+
+	gpio_render();
+}
+
+function gpio_render() {
+	for(var i=0; i< <%=ngpio%>; i++) {
+		if(gpio[i].type == 0) { //type is input (0)
+			if(gpio[i].data == -1)
+				gpio_setundef(i);
+			else {
+				gpio[i].displaytype = gpio[i].type;
+				gpio[i].displaydata = gpio[i].data;
+				
+				if (i < 8) {
+					$("#gpio_type_"+i).html('<%:Input%>');
+				} else {
+					$("#gpio_type_"+i).html('<a id="gpio_tb_'+i+'" style="cursor: pointer;" title="<%:Change mode (Input/Output)%>" onclick="gpio_switch(\'ctrl\', '+i+');"><%:Input%></a>');
+				}
+				var str = (gpio[i].data == 1) ? '1' : '0';
+				$("#gpio_state_"+i).html(str);
+			}
+
+		}
+		else if(gpio[i].type == 1) { //type is output (1)
+			if(gpio[i].data == -1)
+				gpio_setundef(i);
+			else {
+				gpio[i].displaytype = gpio[i].type;
+				gpio[i].displaydata = gpio[i].data;
+
+				if (i < 8) {
+					$("#gpio_type_"+i).html('<%:Output%>');
+				} else {
+					$("#gpio_type_"+i).html('<a id="gpio_tb_'+i+'" style="cursor: pointer;" title="<%:Change mode (Input/Output)%>" onclick="gpio_switch(\'ctrl\', '+i+');"><%:Output%></a>');
+				}
+				var checked = (gpio[i].data == 1) ? ' checked="checked"' : '';
+				$("#gpio_state_"+i).html('<input type="checkbox" id="gpio_cb_'+i+'" onclick="gpio_switch(\'data\', '+i+');"'+checked+' />');
+			}
+		}
+		else {
+			gpio_setundef(i);
+		}	
+	}
+}
+
+function gpio_setundef(i) {
+	$("#gpio_type_"+i).html('<%:N/A%>');
+	$("#gpio_state_"+i).html('<%:N/A%>');
+}
+
+function toggleGpios(chk) {
+
+	if(chk) {
+		$("#gpio_name_3").append(" (Switch)");
+		$("#gpio_name_7").append(" (Relay)");
+		$(".extend").show();
+		$(".direct").hide();
+	} else {
+		$("#gpio_name_3").html("IN3");
+		$("#gpio_name_7").html("OUT3");
+		$(".extend").hide();
+		$(".direct").show();
+	}
+}
+
+</script>
+
+<h2><a id="content" name="content"><%:General Purpose Digital Input/Output%></a></h2>
+<p>
+<%:This page monitors the input and controls the output GPIO pins of this Baltos.%><br />
+<br /><span id="nojs"><%:Please note that Javascript needs to be enabled for this module to work.%><br /></span>
+</p>
+<br />
+
+<fieldset class="cbi-section">
+	<div class="cbi-section-node">
+		<table class="table cbi-section-table" id="gpiotable">		
+		<tr class="tr cbi-section-table-titles">
+			<th class="th cbi-section-table-cell"><%:Port%></th>
+			<th class="th cbi-section-table-cell"><%:Mode%></th>
+			<th class="th cbi-section-table-cell"><%:State%></th>
+		</tr>
+<% for i=0,10,1 do %>
+		<tr class="tr cbi-section-table-row cbi-rowstyle-<%
+
+write((i > 3) and "2" or "1")
+
+if  i > 7 then
+	write(" extend")
+end
+
+if (i % 4) < 3 and i < 8 then
+	write(" direct")
+end
+
+%>">
+			<td class="td cbi-value-field" id="gpio_name_<%=i%>"><%=(i > 3) and ((i > 7) and "IO"..i-8 or "OUT"..i-4) or "IN"..i %></td>
+			<td class="td cbi-value-field" id="gpio_type_<%=i%>"><%:N/A%></td>
+			<td class="td cbi-value-field" id="gpio_state_<%=i%>"><%:N/A%></td>
+		</tr>
+<% end %>
+		</table>
+	</div>
+</fieldset>
+<!--<div style="text-align: right;">
+<span style="padding-right: 10px;" id="gpio_refresh_text"></span><input id="gpio_refresh" type="button" class="cbi-input-reload" onclick="gpio_refresh();" value="<%:Refresh%>" />
+</div>-->
+<br />

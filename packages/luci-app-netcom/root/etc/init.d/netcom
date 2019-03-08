@@ -1,0 +1,106 @@
+#!/bin/sh /etc/rc.common
+
+START=95
+SER2NET_CONFIG='/etc/ser2net.conf'
+SERVICE_DAEMONIZE=1
+SERVICE_WRITE_PID=
+
+check_usb_serial() {
+	while true 
+	do
+		onrisctool -p $1 -t loop
+		/usr/sbin/ser2net &
+		sleep 1
+		echo TESTTEST | nc -i 1 127.0.0.1 $2 > /tmp/serial
+		cat /tmp/serial | logger
+		echo Error: $? | logger 
+		if logread | grep kern. | tail -n 10 | grep "urb failed" || [ "$(cat /tmp/serial)" != "TESTTEST" ]
+		then
+			logger reinitialize usb bus
+			killall ser2net
+			echo 0 >/sys/bus/usb/devices/usb1/authorized
+			sleep 1
+			echo 1 >/sys/bus/usb/devices/usb1/authorized	
+			sleep 1
+		else
+			break
+		fi
+	done
+}
+
+handle_signature() {
+        local config="$1"
+        local name
+        local text
+        config_get name "$config" name
+        config_get text "$config" text
+        echo "SIGNATURE:$name:$text" >> $SER2NET_CONFIG
+}
+
+handle_iface() {
+        local config="$1"
+        local dev
+        local port
+        local timeout
+        local options
+        local baudrate
+        local databit
+        local stopbit
+        local parity
+        local flowtype
+	local mode
+	local devtype
+        config_get dev "$config" dev
+        config_get tcpport "$config" tcpport
+        config_get telprot "$config" telprot
+        config_get timeout "$config" timeout
+        config_get baudrate "$config" baudrate
+        config_get databit "$config" databit
+        config_get stopbit "$config" stopbit
+        config_get parity "$config" parity
+        config_get flowtype "$config" flowtype
+        config_get mode "$config" mode
+        config_get devtype "$config" devtype
+        echo "$tcpport:$telprot:$timeout:$dev:$baudrate $databit $parity $stopbit $flowtype sign1" >> $SER2NET_CONFIG
+
+	if cat /proc/cpuinfo | grep Atheros ; then	
+		check_usb_serial ${config#COM} $tcpport
+	fi
+
+	if [ "$devtype" = "internal" ]; then
+		if onrisctool -j | grep "Port ${config#COM}" | grep 0011 ; then
+			onrisctool -p ${config#COM} -t $mode
+		fi
+		if onrisctool -j | grep "Port ${config#COM}" | grep software; then
+			onrisctool -p ${config#COM} -t $mode
+		fi
+		if onrisctool -S | grep "Vector:" | grep 0011 ; then
+			onrisctool -p ${config#COM} -t $mode
+		fi
+	fi
+	if [ "$devtype" = "nodip" ]; then
+		onrisctool -p ${config#COM} -t $mode
+	fi
+}
+
+start() {
+	/usr/bin/onriscdipd -c -e &
+        config_load '/etc/config/netcom'
+        echo "#ser2net.conf" > $SER2NET_CONFIG
+        echo 'ser2net loaded'
+        config_foreach handle_signature signature
+        config_foreach handle_iface iface
+
+        # start ser2net
+        service_start /usr/sbin/ser2net
+}
+
+stop() {
+        echo 'ser2net stop'
+        service_stop /usr/sbin/ser2net
+}
+
+restart() {
+	stop
+	start
+}
