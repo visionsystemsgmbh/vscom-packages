@@ -10,11 +10,11 @@ You may obtain a copy of the License at
 	http://www.apache.org/licenses/LICENSE-2.0
 
 -%>
-<%+header%>
+<!--<%+header%>-->
 <% 
 	local model
 	require("onrisc")
-	local os=onrisc.onrisc_system_t()
+	os=onrisc.onrisc_system_t()
 	onrisc.onrisc_init(os)
 	local ngpio=onrisc.onrisc_gpio_get_exp_number(onrisc.NUM_BOTH)
 	model = 210
@@ -26,6 +26,7 @@ You may obtain a copy of the License at
 <script type="text/javascript">
 
 	var gpio = new Array(<%=ngpio%>);
+	var reg_toggle = false;
 
 	$(document).ready(function(){
 			$("#nojs").detach();	
@@ -39,7 +40,6 @@ You may obtain a copy of the License at
 			gpio_refresh();
 			//$(".extend").hide();
 			toggleGpios(<%=ext%>);
-			$("#cbid\\.gpio\\.cfg016c7b\\.extender").change(function () {cbi_d_update(this.id);toggleGpios(this.checked);});
 	});
 
 function gpio_refresh() {
@@ -68,8 +68,24 @@ function gpio_refresh() {
 
 	gpio_render();
 	$("#gpio_refresh").removeAttr('disabled');
-	$("#gpio_refresh_text").text('<%:Done.%>');
+	registerToggle();
+}
 
+function registerToggle() {
+	if(reg_toggle)
+		return;
+
+	if($("[type='checkbox'][name='cbid\\.gpio\\.cfg016c7b\\.extender']").length) {
+		console.log('Checkbox exists');
+		$("[type='checkbox'][name='cbid\\.gpio\\.cfg016c7b\\.extender']").change(
+			function () {
+				toggleGpios(this.checked);
+			});
+		reg_toggle = true;
+	} else {
+		console.log('Checkbox doesn\'t exists');
+		setTimeout(registerToggle, 2000);
+	}
 }
 
 function gpio_switch(type, pin) {
